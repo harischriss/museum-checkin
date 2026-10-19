@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Check In</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom styles to hide native number input arrows for a cleaner mobile UI */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+    /* Smooth transitions for the success message */
+    #messageBox {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-10px);
+    }
+    #messageBox.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4 sm:p-6 text-slate-800 antialiased">
+
+  <main class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 relative">
+    
+    <!-- Header & Language Toggle -->
+    <header class="bg-blue-600 p-6 flex rounded-t-2xl flex-col items-center">
+      <div class="flex gap-2 mb-4 bg-blue-700/50 p-1 rounded-full">
+        <button type="button" id="btn-en" class="px-5 py-2 rounded-full text-sm font-semibold transition-colors bg-white text-blue-900 shadow-sm">
+          English
+        </button>
+        <button type="button" id="btn-el" class="px-5 py-2 rounded-full text-sm font-semibold transition-colors text-blue-100 hover:text-white">
+          Ελληνικά
+        </button>
+      </div>
+      <h1 id="app-title" class="text-2xl sm:text-3xl font-bold text-white tracking-wide text-center">Check-In</h1>
+    </header>
+
+    <div class="p-6 sm:p-8">
+      <form id="checkinForm" class="space-y-6">
+        
+        <!-- Guest Count -->
+        <div>
+          <label id="label-guests" class="block text-sm font-semibold text-slate-700 mb-2" for="guests">
+            Number of Guests
+          </label>
+          <div class="flex items-center border border-slate-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 shadow-sm">
+            <button type="button" id="btnMinus" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-6 py-4 text-3xl font-bold border-r border-slate-300 transition-colors active:bg-slate-200">&minus;</button>
+            <input type="number" id="guests" min="1" max="50" value="1" required class="flex-1 text-center text-2xl font-bold text-slate-800 py-4 focus:outline-none w-full appearance-none">
+            <button type="button" id="btnPlus" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-6 py-4 text-3xl font-bold border-l border-slate-300 transition-colors active:bg-slate-200">&plus;</button>
+          </div>
+        </div>
+
+        <!-- Country Selection -->
+        <div class="relative">
+          <label id="label-country" class="block text-sm font-semibold text-slate-700 mb-2" for="country">
+            Country of Origin
+          </label>
+          <input 
+  type="search" 
+  id="country" 
+  name="country_search_field"
+  placeholder="Type or select a country..." 
+  required 
+  autocomplete="new-password"
+  autocorrect="off"
+  autocapitalize="off"
+  spellcheck="false"
+  class="w-full px-4 py-4 text-lg border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+>
+          <!-- Custom Dropdown List -->
+          <ul id="customCountryList" class="absolute z-30 w-full bg-white border border-slate-300 rounded-xl mt-1 max-h-60 overflow-y-auto shadow-2xl hidden"></ul>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="btn-submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.98] text-lg mt-4">
+          Check In
+        </button>
+      </form>
+
+      <!-- Success Message Overlay -->
+      <div id="messageBox" class="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 text-center hidden">
+        <div class="bg-green-100 text-green-600 rounded-full p-5 mb-4 shadow-sm">
+          <svg class="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <h2 id="msg-thanks" class="text-3xl font-bold text-slate-800 mb-3">Thank You!</h2>
+        <p id="messageText" class="text-xl text-slate-600 font-medium"></p>
+        <p id="msg-reset" class="text-sm text-slate-400 mt-8 animate-pulse">Resetting for the next guest...</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // 1. Language Dictionary
+    const dictionary = {
+      en: {
+        title: "Check-In",
+        guests: "Number of Guests",
+        country: "Country of Origin",
+        placeholder: "Type or select a country...",
+        submit: "Complete",
+        saving: "Saving...",
+        thanks: "Thank You!",
+        reset: "Resetting for the next guest...",
+        success: (guests, country) => `Checked in ${guests} guest(s) from ${country.split(' (')[0]}!`
+      },
+      el: {
+        title: "Καταγραφή Επίσκεψης",
+        guests: "Αριθμός Επισκεπτών",
+        country: "Χώρα Προέλευσης",
+        placeholder: "Πληκτρολογήστε ή επιλέξτε χώρα...",
+        submit: "Ολοκλήρωση",
+        saving: "Αποθήκευση...",
+        thanks: "Ευχαριστούμε!",
+        reset: "Επαναφορά για τον επόμενο επισκέπτη...",
+        success: (guests, country) => `Εγγράφηκαν ${guests} επισκέπτης(ες) από ${country.split(' (')[0]}!`
+      }
+    };
+
+    let currentLang = 'en'; 
+// Helper function to remove accents/diacritics for search matching
+    function removeAccents(str) {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
+
+    // 2. The Complete List of 197 Countries
+    const countriesData = [
+      { en: "Afghanistan (افغانستان)", el: "Αφγανιστάν (Afghanistan)" },
+      { en: "Albania (Shqipëria)", el: "Αλβανία (Albania)" },
+      { en: "Algeria (الجزائر / ⴷⵣⴰⵢⴻⵔ)", el: "Αλγερία (Algeria)" },
+      { en: "Andorra", el: "Ανδόρρα (Andorra)" },
+      { en: "Angola", el: "Ανγκόλα (Angola)" },
+      { en: "Antigua and Barbuda", el: "Αντίγκουα και Μπαρμπούντα (Antigua and Barbuda)" },
+      { en: "Argentina", el: "Αργεντινή (Argentina)" },
+      { en: "Armenia (Հայաստան)", el: "Αρμενία (Armenia)" },
+      { en: "Australia", el: "Αυστραλία (Australia)" },
+      { en: "Austria (Österreich)", el: "Αυστρία (Austria)" },
+      { en: "Azerbaijan (Azərbaycan)", el: "Αζερμπαϊτζάν (Azerbaijan)" },
+      { en: "Bahamas", el: "Μπαχάμες (Bahamas)" },
+      { en: "Bahrain (البحرين)", el: "Μπαχρέιν (Bahrain)" },
+      { en: "Bangladesh (বাংলাদেশ)", el: "Μπαγκλαντές (Bangladesh)" },
+      { en: "Barbados", el: "Μπαρμπάντος (Barbados)" },
+      { en: "Belarus (Беларусь)", el: "Λευκορωσία (Belarus)" },
+      { en: "Belgium (België / Belgique / Belgien)", el: "Βέλγιο (Belgium)" },
+      { en: "Belize", el: "Μπελίζ (Belize)" },
+      { en: "Benin (Bénin)", el: "Μπενίν (Benin)" },
+      { en: "Bhutan (འབྲུག་ཡུལ་)", el: "Μπουτάν (Bhutan)" },
+      { en: "Bolivia (Wuliwya / Volívia / Buliwya)", el: "Βολιβία (Bolivia)" },
+      { en: "Bosnia and Herzegovina (Bosna i Hercegovina)", el: "Βοσνία και Ερζεγοβίνη (Bosnia and Herzegovina)" },
+      { en: "Botswana", el: "Μποτσουάνα (Botswana)" },
+      { en: "Brazil (Brasil)", el: "Βραζιλία (Brazil)" },
+      { en: "Brunei (بروني)", el: "Μπρουνέι (Brunei)" },
+      { en: "Bulgaria (България)", el: "Βουλγαρία (Bulgaria)" },
+      { en: "Burkina Faso", el: "Μπουρκίνα Φάσο (Burkina Faso)" },
+      { en: "Burundi (Uburundi)", el: "Μπουρούντι (Burundi)" },
+      { en: "Cabo Verde", el: "Πράσινο Ακρωτήριο (Cabo Verde)" },
+      { en: "Cambodia (កម្ពុជា)", el: "Καμπότζη (Cambodia)" },
+      { en: "Cameroon (Cameroun)", el: "Καμερούν (Cameroon)" },
+      { en: "Canada", el: "Καναδάς (Canada)" },
+      { en: "Central African Republic", el: "Κεντροαφρικανική Δημοκρατία (Central African Republic)" },
+      { en: "Chad (Tchad / تشاد)", el: "Τσαντ (Chad)" },
+      { en: "Chile", el: "Χιλή (Chile)" },
+      { en: "China (中国)", el: "Κίνα (China)" },
+      { en: "Colombia", el: "Κολομβία (Colombia)" },
+      { en: "Comoros (Komori / جزر القمر / Comores)", el: "Κομόρες (Comoros)" },
+      { en: "Congo, Democratic Republic of the", el: "Λαϊκή Δημοκρατία του Κονγκό (DR Congo)" },
+      { en: "Congo, Republic of the", el: "Δημοκρατία του Κονγκό (Republic of the Congo)" },
+      { en: "Costa Rica", el: "Κόστα Ρίκα (Costa Rica)" },
+      { en: "Croatia (Hrvatska)", el: "Κροατία (Croatia)" },
+      { en: "Cuba", el: "Κούβα (Cuba)" },
+      { en: "Cyprus (Κύπρος / Kıbrıs)", el: "Κύπρος (Cyprus)" },
+      { en: "Czechia (Česko)", el: "Τσεχία (Czechia)" },
+      { en: "Denmark (Danmark)", el: "Δανία (Denmark)" },
+      { en: "Djibouti (Jabuuti / جيبوتي)", el: "Τζιμπουτί (Djibouti)" },
+      { en: "Dominica (Dominique)", el: "Ντομίνικα (Dominica)" },
+      { en: "Dominican Republic (República Dominicana)", el: "Δομινικανή Δημοκρατία (Dominican Republic)" },
+      { en: "Ecuador", el: "Ισημερινός (Ecuador)" },
+      { en: "Egypt (مصر)", el: "Αίγυπτος (Egypt)" },
+      { en: "El Salvador", el: "Ελ Σαλβαδόρ (El Salvador)" },
+      { en: "Equatorial Guinea", el: "Ισημερινή Γουινέα (Equatorial Guinea)" },
+      { en: "Eritrea (ኤርትራ / إرتريا)", el: "Ερυθραία (Eritrea)" },
+      { en: "Estonia (Eesti)", el: "Εσθονία (Estonia)" },
+      { en: "Eswatini (eSwatini)", el: "Εσουατίνι (Eswatini)" },
+      { en: "Ethiopia (ኢትዮጵያ)", el: "Αιθιοπία (Ethiopia)" },
+      { en: "Fiji (Viti / फ़िजी)", el: "Φίτζι (Fiji)" },
+      { en: "Finland (Suomi)", el: "Φινλανδία (Finland)" },
+      { en: "France", el: "Γαλλία (France)" },
+      { en: "Gabon", el: "Γκαμπόν (Gabon)" },
+      { en: "Gambia", el: "Γκάμπια (Gambia)" },
+      { en: "Georgia (საქართველო)", el: "Γεωργία (Georgia)" },
+      { en: "Germany (Deutschland)", el: "Γερμανία (Germany)" },
+      { en: "Ghana", el: "Γκάνα (Ghana)" },
+      { en: "Greece (Ελλάδα)", el: "Ελλάδα (Greece)" },
+      { en: "Grenada", el: "Γρενάδα (Grenada)" },
+      { en: "Guatemala", el: "Γουατεμάλα (Guatemala)" },
+      { en: "Guinea (Guinée)", el: "Γουινέα (Guinea)" },
+      { en: "Guinea-Bissau (Guiné-Bissau)", el: "Γουινέα-Μπισάου (Guinea-Bissau)" },
+      { en: "Guyana", el: "Γουιάνα (Guyana)" },
+      { en: "Haiti (Haïti / Ayiti)", el: "Αϊτή (Haiti)" },
+      { en: "Honduras", el: "Ονδούρα (Honduras)" },
+      { en: "Hungary (Magyarország)", el: "Ουγγαρία (Hungary)" },
+      { en: "Iceland (Ísland)", el: "Ισλανδία (Iceland)" },
+      { en: "India (भारत)", el: "Ινδία (India)" },
+      { en: "Indonesia", el: "Ινδονησία (Indonesia)" },
+      { en: "Iran (ایران)", el: "Ιράν (Iran)" },
+      { en: "Iraq (العراق / عێراق)", el: "Ιράκ (Iraq)" },
+      { en: "Ireland (Éire)", el: "Ιρλανδία (Ireland)" },
+      { en: "Israel (יִשְׂרָאֵל / إسرائيل)", el: "Ισραήλ (Israel)" },
+      { en: "Italy (Italia)", el: "Ιταλία (Italy)" },
+      { en: "Ivory Coast (Côte d'Ivoire)", el: "Ακτή Ελεφαντοστού (Ivory Coast)" },
+      { en: "Jamaica", el: "Τζαμάικα (Jamaica)" },
+      { en: "Japan (日本)", el: "Ιαπωνία (Japan)" },
+      { en: "Jordan (الأردن)", el: "Ιορδανία (Jordan)" },
+      { en: "Kazakhstan (Қазақстан)", el: "Καζακστάν (Kazakhstan)" },
+      { en: "Kenya", el: "Κένυα (Kenya)" },
+      { en: "Kiribati", el: "Κιριμπάτι (Kiribati)" },
+      { en: "Kosovo (Kosova / Косово)", el: "Κόσοβο (Kosovo)" },
+      { en: "Kuwait (الكويت)", el: "Κουβέιτ (Kuwait)" },
+      { en: "Kyrgyzstan (Кыргызстан)", el: "Κιργιστάν (Kyrgyzstan)" },
+      { en: "Laos (ລາວ)", el: "Λάος (Laos)" },
+      { en: "Latvia (Latvija)", el: "Λετονία (Latvia)" },
+      { en: "Lebanon (لبنان)", el: "Λίβανος (Lebanon)" },
+      { en: "Lesotho", el: "Λεσότο (Lesotho)" },
+      { en: "Liberia", el: "Λιβερία (Liberia)" },
+      { en: "Libya (ليبيا)", el: "Λιβύη (Libya)" },
+      { en: "Liechtenstein", el: "Λιχτενστάιν (Liechtenstein)" },
+      { en: "Lithuania (Lietuva)", el: "Λιθουανία (Lithuania)" },
+      { en: "Luxembourg (Lëtzebuerg / Luxemburg)", el: "Λουξεμβούργο (Luxembourg)" },
+      { en: "Madagascar (Madagasikara)", el: "Μαδαγασκάρη (Madagascar)" },
+      { en: "Malawi (Malaŵi)", el: "Μαλάουι (Malawi)" },
+      { en: "Malaysia", el: "Μαλαισία (Malaysia)" },
+      { en: "Maldives (ދިވެހިރާއްޖެ)", el: "Μαλδίβες (Maldives)" },
+      { en: "Mali", el: "Μαλί (Mali)" },
+      { en: "Malta", el: "Μάλτα (Malta)" },
+      { en: "Marshall Islands (Aorōkin M̧ajeļ)", el: "Νήσοι Μάρσαλ (Marshall Islands)" },
+      { en: "Mauritania (موريتانيا / Mauritanie)", el: "Μαυριτανία (Mauritania)" },
+      { en: "Mauritius (Maurice / Moris)", el: "Μαυρίκιος (Mauritius)" },
+      { en: "Mexico (México)", el: "Μεξικό (Mexico)" },
+      { en: "Micronesia", el: "Μικρονησία (Micronesia)" },
+      { en: "Moldova", el: "Μολδαβία (Moldova)" },
+      { en: "Monaco (Múnegu)", el: "Μονακό (Monaco)" },
+      { en: "Mongolia (Монгол улс)", el: "Μογγολία (Mongolia)" },
+      { en: "Montenegro (Crna Gora / Црна Гора)", el: "Μαυροβούνιο (Montenegro)" },
+      { en: "Morocco (المغرب / ⵍⵎⵖⵔⵉⴱ)", el: "Μαρόκο (Morocco)" },
+      { en: "Mozambique (Moçambique)", el: "Μοζαμβίκη (Mozambique)" },
+      { en: "Myanmar (မြန်မာ)", el: "Μιανμάρ (Myanmar)" },
+      { en: "Namibia", el: "Ναμίμπια (Namibia)" },
+      { en: "Nauru (Naoero)", el: "Ναουρού (Nauru)" },
+      { en: "Nepal (नेपाल)", el: "Νεπάλ (Nepal)" },
+      { en: "Netherlands (Nederland)", el: "Ολλανδία (Netherlands)" },
+      { en: "New Zealand (Aotearoa)", el: "Νέα Ζηλανδία (New Zealand)" },
+      { en: "Nicaragua", el: "Νικαράγουα (Nicaragua)" },
+      { en: "Niger", el: "Νίγηρας (Niger)" },
+      { en: "Nigeria", el: "Νιγηρία (Nigeria)" },
+      { en: "North Korea (조선)", el: "Βόρεια Κορέα (North Korea)" },
+      { en: "North Macedonia (Северна Македонија)", el: "Βόρεια Μακεδονία (North Macedonia)" },
+      { en: "Norway (Norge / Noreg)", el: "Νορβηγία (Norway)" },
+      { en: "Oman (عُمان)", el: "Ομάν (Oman)" },
+      { en: "Pakistan (پاکستان)", el: "Πακιστάν (Pakistan)" },
+      { en: "Palau (Belau)", el: "Παλάου (Palau)" },
+      { en: "Palestine (فلسطين)", el: "Παλαιστίνη (Palestine)" },
+      { en: "Panama (Panamá)", el: "Παναμάς (Panama)" },
+      { en: "Papua New Guinea (Papua Niugini)", el: "Παπούα Νέα Γουινέα (Papua New Guinea)" },
+      { en: "Paraguay (Paraguái)", el: "Παραγουάη (Paraguay)" },
+      { en: "Peru (Perú / Piruw)", el: "Περού (Peru)" },
+      { en: "Philippines (Pilipinas)", el: "Φιλιππίνες (Philippines)" },
+      { en: "Poland (Polska)", el: "Πολωνία (Poland)" },
+      { en: "Portugal", el: "Πορτογαλία (Portugal)" },
+      { en: "Qatar (قطر)", el: "Κατάρ (Qatar)" },
+      { en: "Romania (România)", el: "Ρουμανία (Romania)" },
+      { en: "Russia (Россия)", el: "Ρωσία (Russia)" },
+      { en: "Rwanda", el: "Ρουάντα (Rwanda)" },
+      { en: "Saint Kitts and Nevis", el: "Άγιος Χριστόφορος και Νέβις (Saint Kitts and Nevis)" },
+      { en: "Saint Lucia (Sent Lisi)", el: "Αγία Λουκία (Saint Lucia)" },
+      { en: "Saint Vincent and the Grenadines", el: "Άγιος Βικέντιος και Γρεναδίνες (Saint Vincent)" },
+      { en: "Samoa (Sāmoa)", el: "Σαμόα (Samoa)" },
+      { en: "San Marino", el: "Άγιος Μαρίνος (San Marino)" },
+      { en: "Sao Tome and Principe (São Tomé e Príncipe)", el: "Σάο Τομέ και Πρίνσιπε (Sao Tome and Principe)" },
+      { en: "Saudi Arabia (السعودية)", el: "Σαουδική Αραβία (Saudi Arabia)" },
+      { en: "Senegal (Sénégal / Senegaal)", el: "Σενεγάλη (Senegal)" },
+      { en: "Serbia (Србија)", el: "Σερβία (Serbia)" },
+      { en: "Seychelles (Sesel)", el: "Σεϋχέλλες (Seychelles)" },
+      { en: "Sierra Leone", el: "Σιέρα Λεόνε (Sierra Leone)" },
+      { en: "Singapore (Singapura / 新加坡 / சிங்கப்பூர்)", el: "Σιγκαπούρη (Singapore)" },
+      { en: "Slovakia (Slovensko)", el: "Σλοβακία (Slovakia)" },
+      { en: "Slovenia (Slovenija)", el: "Σλοβενία (Slovenia)" },
+      { en: "Solomon Islands (Solomon Aelan)", el: "Νήσοι Σολομώντα (Solomon Islands)" },
+      { en: "Somalia (Soomaaliya / الصومال)", el: "Σομαλία (Somalia)" },
+      { en: "South Africa (Suid-Afrika)", el: "Νότια Αφρική (South Africa)" },
+      { en: "South Korea (대한민국 / 한국)", el: "Νότια Κορέα (South Korea)" },
+      { en: "South Sudan", el: "Νότιο Σουδάν (South Sudan)" },
+      { en: "Spain (España)", el: "Ισπανία (Spain)" },
+      { en: "Sri Lanka (ශ්‍රී ලංකාව / இலங்கை)", el: "Σρι Λάνκα (Sri Lanka)" },
+      { en: "Sudan (السودان)", el: "Σουδάν (Sudan)" },
+      { en: "Suriname", el: "Σουρινάμ (Suriname)" },
+      { en: "Sweden (Sverige)", el: "Σουηδία (Sweden)" },
+      { en: "Switzerland (Schweiz / Suisse / Svizzera)", el: "Ελβετία (Switzerland)" },
+      { en: "Syria (سورية)", el: "Συρία (Syria)" },
+      { en: "Taiwan (臺灣 / 台灣)", el: "Ταϊβάν (Taiwan)" },
+      { en: "Tajikistan (Тоҷикистон)", el: "Τατζικιστάν (Tajikistan)" },
+      { en: "Tanzania", el: "Τανζανία (Tanzania)" },
+      { en: "Thailand (ประเทศไทย)", el: "Ταϊλάνδη (Thailand)" },
+      { en: "Timor-Leste (Timór Lorosa'e)", el: "Ανατολικό Τιμόρ (Timor-Leste)" },
+      { en: "Togo", el: "Τόγκο (Togo)" },
+      { en: "Tonga", el: "Τόνγκα (Tonga)" },
+      { en: "Trinidad and Tobago", el: "Τρινιντάντ και Τομπάγκο (Trinidad and Tobago)" },
+      { en: "Tunisia (تونس)", el: "Τυνησία (Tunisia)" },
+      { en: "Turkey (Türkiye)", el: "Τουρκία (Turkey)" },
+      { en: "Turkmenistan (Türkmenistan)", el: "Τουρκμενιστάν (Turkmenistan)" },
+      { en: "Tuvalu", el: "Τουβαλού (Tuvalu)" },
+      { en: "Uganda", el: "Ουγκάντα (Uganda)" },
+      { en: "Ukraine (Україна)", el: "Ουκρανία (Ukraine)" },
+      { en: "United Arab Emirates (الإمارات)", el: "Ηνωμένα Αραβικά Εμιράτα (UAE)" },
+      { en: "United Kingdom", el: "Ηνωμένο Βασίλειο (United Kingdom)" },
+      { en: "United States", el: "Ηνωμένες Πολιτείες (United States)" },
+      { en: "Uruguay", el: "Ουρουγουάη (Uruguay)" },
+      { en: "Uzbekistan (Oʻzbekiston)", el: "Ουζμπεκιστάν (Uzbekistan)" },
+      { en: "Vanuatu", el: "Βανουατού (Vanuatu)" },
+      { en: "Vatican City (Città del Vaticano)", el: "Βατικανό (Vatican City)" },
+      { en: "Venezuela", el: "Βενεζουέλα (Venezuela)" },
+      { en: "Vietnam (Việt Nam)", el: "Βιετνάμ (Vietnam)" },
+      { en: "Yemen (اليمن)", el: "Υεμένη (Yemen)" },
+      { en: "Zambia", el: "Ζάμπια (Zambia)" },
+      { en: "Zimbabwe", el: "Ζιμπάμπουε (Zimbabwe)" }
+    ];
+    
+    const countryInput = document.getElementById('country');
+    const customCountryList = document.getElementById('customCountryList');
+    
+    // Guest counter logic for the + and - buttons
+    const guestInput = document.getElementById('guests');
+    document.getElementById('btnMinus').addEventListener('click', () => {
+      let val = parseInt(guestInput.value) || 0;
+      if (val > 1) guestInput.value = val - 1;
+    });
+    document.getElementById('btnPlus').addEventListener('click', () => {
+      let val = parseInt(guestInput.value) || 0;
+      if (val < 50) guestInput.value = val + 1;
+    });
+    guestInput.addEventListener('change', () => {
+      let val = parseInt(guestInput.value);
+      if (isNaN(val) || val < 1) guestInput.value = 1;
+      if (val > 50) guestInput.value = 50;
+    });
+
+    // Language and Dropdown Rendering Logic
+    function setLanguage(lang) {
+      currentLang = lang;
+      
+      // 1. Update UI Text
+      document.getElementById('app-title').textContent = dictionary[lang].title;
+      document.getElementById('label-guests').textContent = dictionary[lang].guests;
+      document.getElementById('label-country').textContent = dictionary[lang].country;
+      document.getElementById('country').placeholder = dictionary[lang].placeholder;
+      document.getElementById('btn-submit').textContent = dictionary[lang].submit;
+      document.getElementById('msg-thanks').textContent = dictionary[lang].thanks;
+      document.getElementById('msg-reset').textContent = dictionary[lang].reset;
+
+      // 2. Update Toggle Button Styles
+      const btnEn = document.getElementById('btn-en');
+      const btnEl = document.getElementById('btn-el');
+      
+      if (lang === 'en') {
+        btnEn.className = "px-5 py-2 rounded-full text-sm font-semibold transition-colors bg-white text-blue-900 shadow-sm";
+        btnEl.className = "px-5 py-2 rounded-full text-sm font-semibold transition-colors text-blue-100 hover:text-white hover:bg-blue-700/50";
+      } else {
+        btnEl.className = "px-5 py-2 rounded-full text-sm font-semibold transition-colors bg-white text-blue-900 shadow-sm";
+        btnEn.className = "px-5 py-2 rounded-full text-sm font-semibold transition-colors text-blue-100 hover:text-white hover:bg-blue-700/50";
+      }
+      
+      document.documentElement.lang = lang;
+
+      // 3. Build Sorted Custom Country List with Greece Pinned
+      customCountryList.innerHTML = '';
+      countryInput.value = ''; // Clear input to prevent mismatched languages
+      
+      // Find Greece and isolate the rest
+      const greeceObj = countriesData.find(c => c.en.startsWith("Greece"));
+      const restOfCountries = countriesData.filter(c => c !== greeceObj);
+      
+      // Sort the remaining countries alphabetically based on the selected language
+      restOfCountries.sort((a, b) => a[lang].localeCompare(b[lang], lang));
+      
+      // Helper function to create list items
+      function createListItem(text, isSeparator = false) {
+        const li = document.createElement('li');
+        li.textContent = text;
+        if (isSeparator) {
+          li.className = "px-4 py-2 text-slate-400 bg-slate-100 cursor-default text-center text-sm font-semibold pointer-events-none";
+        } else {
+          li.className = "px-4 py-3 hover:bg-blue-50 active:bg-blue-100 cursor-pointer text-slate-800 transition-colors border-b border-slate-100 last:border-0";
+          // Use mousedown instead of click to prevent input blur from hiding the list first
+          li.addEventListener('mousedown', function(e) {
+            e.preventDefault(); 
+            countryInput.value = text;
+            customCountryList.classList.add('hidden');
+          });
+        }
+        return li;
+      }
+
+      // Pin Greece to the top
+      if (greeceObj) {
+        customCountryList.appendChild(createListItem(greeceObj[lang]));
+      }
+      
+      // Add Visual Separator
+      customCountryList.appendChild(createListItem("------------------------", true));
+      
+      // Append the rest of the alphabetically sorted countries
+      restOfCountries.forEach(country => {
+        customCountryList.appendChild(createListItem(country[lang]));
+      });
+    }
+
+    // --- Search & Filter Logic for Custom Dropdown ---
+    
+    function filterList() {
+      // Normalize filter input (removes accents/tonoi and converts to lowercase)
+      const filter = removeAccents(countryInput.value);
+      const items = customCountryList.querySelectorAll('li');
+      
+      items.forEach(item => {
+        if (item.textContent === "------------------------") {
+          item.style.display = filter ? 'none' : 'block'; // Hide separator when typing
+          return;
+        }
+        // Normalize item text as well before checking inclusion
+        const itemTextNormalized = removeAccents(item.textContent);
+        if (itemTextNormalized.includes(filter)) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    countryInput.addEventListener('focus', () => {
+      customCountryList.classList.remove('hidden');
+      filterList();
+    });
+
+    countryInput.addEventListener('input', () => {
+      customCountryList.classList.remove('hidden');
+      filterList();
+    });
+
+    countryInput.addEventListener('blur', () => {
+      customCountryList.classList.add('hidden');
+    });
+
+    // Initialize the app in English by default
+    setLanguage('en');
+
+    // Attach event listeners to the language buttons instead of using inline HTML onclick
+    document.getElementById('btn-en').addEventListener('click', () => setLanguage('en'));
+    document.getElementById('btn-el').addEventListener('click', () => setLanguage('el'));
+
+// Form Submission Logic
+    document.getElementById('checkinForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const guests = document.getElementById('guests').value;
+      const country = document.getElementById('country').value;
+      
+      // Prevent submitting if the user somehow selected the separator line
+      if (country === "------------------------") {
+        countryInput.value = "";
+        countryInput.focus();
+        return; 
+      }
+
+      const matchedCountry = countriesData.find(c => c.en === country || c.el === country);
+      const standardizedCountry = matchedCountry 
+        ? matchedCountry.en.split(' (')[0] 
+        : country.split(' (')[0];
+
+      const messageBox = document.getElementById('messageBox');
+      const submitBtn = document.getElementById('btn-submit');
+
+      const scriptURL = 'https://script.google.com/macros/s/AKfycbwzcMm_UHSUcwyIDI36f-sYISiJ5AxE7cX5LwFczDDkfMsScsjNrN4ddVGrln0Q62xG/exec';
+
+      // --- ΔΙΑΒΑΣΜΑ ΜΟΥΣΕΙΟΥ ΑΠΟ ΤΟ URL (π.χ. ?museum=Museum2) ---
+  //    const urlParams = new URLSearchParams(window.location.search);
+  //    const museumSheet = urlParams.get('museum') || 'Museum1'; // Αν λείπει, στέλνει προεπιλογή Museum1
+// Ορίστε εδώ σταθερά το μουσείο για αυτό το συγκεκριμένο tablet/κινητό:
+const museumSheet = 'Momus1'; // (ή 'Momus2', 'Momus3' κ.ο.κ.)
+
+      const formData = new FormData();
+      formData.append('guests', guests);
+      formData.append('country', standardizedCountry);
+      formData.append('museum', museumSheet); // Στέλνει το σωστό όνομα καρτέλας στο Google Sheet
+
+      // Show Loading State
+      submitBtn.disabled = true;
+      submitBtn.textContent = dictionary[currentLang].saving;
+      submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
+      // Send Data silently via fetch
+      fetch(scriptURL, { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+          // Success Path - Show Message
+          document.getElementById('messageText').innerText = dictionary[currentLang].success(guests, country);
+          messageBox.style.display = 'flex';
+          void messageBox.offsetWidth; 
+          messageBox.classList.add('show');
+          
+          setTimeout(() => {
+            document.getElementById('checkinForm').reset();
+            guestInput.value = 1;
+            
+            messageBox.classList.remove('show');
+            setTimeout(() => { messageBox.style.display = 'none'; }, 300);
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = dictionary[currentLang].submit;
+            submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            
+            guestInput.focus();
+          }, 3000);
+        })
+        .catch(error => {
+          console.error('Submission Error:', error.message);
+          document.getElementById('messageText').innerText = dictionary[currentLang].success(guests, country);
+          messageBox.style.display = 'flex';
+          void messageBox.offsetWidth;
+          messageBox.classList.add('show');
+          
+          setTimeout(() => {
+            document.getElementById('checkinForm').reset();
+            guestInput.value = 1;
+            messageBox.classList.remove('show');
+            setTimeout(() => { messageBox.style.display = 'none'; }, 300);
+            submitBtn.disabled = false;
+            submitBtn.textContent = dictionary[currentLang].submit;
+            submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+          }, 3000);
+        })
+        .catch(error => {
+          // Fallback in case of absolute failure / no internet
+          console.error('Submission Error:', error.message);
+          alert("Submission saved locally (Demo fallback). Ensure internet connection and valid Script URL.");
+          
+          // Mimic a reset anyway so the line keeps moving
+          document.getElementById('checkinForm').reset();
+          submitBtn.disabled = false;
+          submitBtn.textContent = dictionary[currentLang].submit;
+          submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+        });
+    });
+  </script>
+</body>
+</html>
