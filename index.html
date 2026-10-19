@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Check In</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -467,6 +470,15 @@
     document.getElementById('btn-en').addEventListener('click', () => setLanguage('en'));
     document.getElementById('btn-el').addEventListener('click', () => setLanguage('el'));
 
+    // --- Ρύθμιση Μουσείου & Αυτόματη Απόκρυψη Παραμέτρων URL ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const museumParam = urlParams.get('museum');
+    if (museumParam) {
+      localStorage.setItem('selectedMuseum', museumParam);
+      // Εξαφανίζει αμέσως το "?museum=Momus1" από τη μπάρα διευθύνσεων
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     // Form Submission Logic (Instant UI + Reliable Google Sheets Sync)
     document.getElementById('checkinForm').addEventListener('submit', function(event) {
       event.preventDefault();
@@ -489,9 +501,8 @@
       const messageBox = document.getElementById('messageBox');
       const scriptURL = 'https://script.google.com/macros/s/AKfycbwzcMm_UHSUcwyIDI36f-sYISiJ5AxE7cX5LwFczDDkfMsScsjNrN4ddVGrln0Q62xG/exec';
 
-      // Διάβασμα του μουσείου απευθείας από το URL (π.χ. ?museum=Momus2), αλλιώς προεπιλογή 'Momus1'
-      const urlParams = new URLSearchParams(window.location.search);
-      const museumSheet = urlParams.get('museum') || 'Momus1';
+      // Χρήση του αποθηκευμένου μουσείου
+      const museumSheet = localStorage.getItem('selectedMuseum') || 'Momus1';
 
       const formData = new FormData();
       formData.append('guests', guests);
