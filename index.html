@@ -467,18 +467,14 @@
     document.getElementById('btn-en').addEventListener('click', () => setLanguage('en'));
     document.getElementById('btn-el').addEventListener('click', () => setLanguage('el'));
 
-    // --- Ρύθμιση & Αποθήκευση Μουσείου (μέσω URL) ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const museumSheet = urlParams.get('museum') || 'Museum1';
-    localStorage.setItem('selectedMuseum', museumSheet);
-
-    // Form Submission Logic (Instant UI with background Beacon sync)
+    // Form Submission Logic (Instant UI + Reliable Google Sheets Sync)
     document.getElementById('checkinForm').addEventListener('submit', function(event) {
       event.preventDefault();
 
       const guests = document.getElementById('guests').value;
       const country = document.getElementById('country').value;
       
+      // Prevent submitting if the user somehow selected the separator line
       if (country === "------------------------") {
         countryInput.value = "";
         countryInput.focus();
@@ -493,25 +489,32 @@
       const messageBox = document.getElementById('messageBox');
       const scriptURL = 'https://script.google.com/macros/s/AKfycbwzcMm_UHSUcwyIDI36f-sYISiJ5AxE7cX5LwFczDDkfMsScsjNrN4ddVGrln0Q62xG/exec';
 
+      // Διάβασμα του μουσείου απευθείας από το URL (π.χ. ?museum=Momus2), αλλιώς προεπιλογή 'Momus1'
+      const urlParams = new URLSearchParams(window.location.search);
+      const museumSheet = urlParams.get('museum') || 'Momus1';
+
       const formData = new FormData();
       formData.append('guests', guests);
       formData.append('country', standardizedCountry);
-      formData.append('museum', localStorage.getItem('selectedMuseum') || 'Museum1');
+      formData.append('museum', museumSheet);
 
-      // 1. ΔΕΙΞΕ ΑΜΕΣΩΣ ΤΟ ΜΥΝΗΜΑ ΕΠΙΤΥΧΙΑΣ (Χωρίς καμία καθυστέρηση)
+      // 1. Εμφάνιση του μηνύματος επιτυχίας ΑΜΕΣΩΣ στην οθόνη (μηδενική αναμονή)
       document.getElementById('messageText').innerText = dictionary[currentLang].success(guests, country);
       messageBox.style.display = 'flex';
       void messageBox.offsetWidth; 
       messageBox.classList.add('show');
 
-      // 2. ΚΑΝΕ ΑΜΕΣΩΣ RESET ΤΗΣ ΦΟΡΜΑΣ
+      // 2. Άμεσο Reset της φόρμας για τον επόμενο επισκέπτη
       document.getElementById('checkinForm').reset();
       guestInput.value = 1;
 
-      // 3. ΣΤΕΙΛΕ ΤΑ ΔΕΔΟΜΕΝΑ ΣΤΟ GOOGLE SHEET ΜΕ BEACON (Εγγυημένη αποστολή στο παρασκήνιο)
-      navigator.sendBeacon(scriptURL, formData);
+      // 3. Αποστολή στο Google Sheet στο παρασκήνιο με την δοκιμασμένη μέθοδο fetch
+      fetch(scriptURL, { method: 'POST', body: formData })
+        .catch(error => {
+          console.error('Background Sync Error:', error);
+        });
 
-      // 4. ΚΛΕΙΣΕ ΤΟ ΜΥΝΗΜΑ ΜΕΤΑ ΑΠΟ 2 ΔΕΥΤΕΡΟΛΕΠΤΑ
+      // 4. Κλείσιμο του μηνύματος μετά από 2 δευτερόλεπτα
       setTimeout(() => {
         messageBox.classList.remove('show');
         setTimeout(() => { messageBox.style.display = 'none'; }, 300);
