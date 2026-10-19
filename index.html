@@ -498,7 +498,7 @@
       formData.append('country', standardizedCountry);
       formData.append('museum', localStorage.getItem('selectedMuseum') || 'Museum1');
 
-      // 1. ΔΕΙΞΕ ΑΜΕΣΩΣ ΤΟ ΜΥΝΗΜΑ ΕΠΙΤΥΧΙΑΣ (Χωρίς καθυστέρηση)
+      // 1. ΔΕΙΞΕ ΑΜΕΣΩΣ ΤΟ ΜΥΝΗΜΑ ΕΠΙΤΥΧΙΑΣ (Χωρίς καμία καθυστέρηση)
       document.getElementById('messageText').innerText = dictionary[currentLang].success(guests, country);
       messageBox.style.display = 'flex';
       void messageBox.offsetWidth; 
@@ -508,7 +508,7 @@
       document.getElementById('checkinForm').reset();
       guestInput.value = 1;
 
-      // 3. ΣΤΕΙΛΕ ΤΑ ΔΕΔΟΜΕΝΑ ΣΤΟ GOOGLE SHEET ΑΣΥΓΧΡΟΝΑ
+      // 3. ΣΤΕΙΛΕ ΤΑ ΔΕΔΟΜΕΝΑ ΣΤΟ GOOGLE SHEET ΜΕ BEACON (Εγγυημένη αποστολή στο παρασκήνιο)
       navigator.sendBeacon(scriptURL, formData);
 
       // 4. ΚΛΕΙΣΕ ΤΟ ΜΥΝΗΜΑ ΜΕΤΑ ΑΠΟ 2 ΔΕΥΤΕΡΟΛΕΠΤΑ
